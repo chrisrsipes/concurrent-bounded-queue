@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <time.h>
 
-#define DEBUG 5
+#define DEBUG 0
 
 typedef enum OperationType {
   ENQUEUE,
@@ -165,6 +165,7 @@ BlockingQueue *createBlockingQueue(int capacity) {
   ptr->tail = 0;
 
   pthread_mutex_init(&ptr->headLock, NULL);
+  pthread_mutex_init(&ptr->tailLock, NULL);
 
   return ptr;
 }
@@ -175,6 +176,7 @@ BlockingQueue *destroyBlockingQueue(BlockingQueue *ptr) {
     return NULL;
 
   pthread_mutex_destroy(&ptr->headLock);
+  pthread_mutex_destroy(&ptr->tailLock);
 
   if (ptr->array != NULL)
     free(ptr->array);
@@ -245,7 +247,7 @@ void *enqueue_implementation(void *input) {
   queue = request->queue;
 
   // lock queue
-  pthread_mutex_lock(&queue->headLock);
+  pthread_mutex_lock(&queue->tailLock);
 
   // queue is full, unlock and return
   if (queue->tail - queue->head == queue->capacity) {
@@ -255,7 +257,7 @@ void *enqueue_implementation(void *input) {
 
     request->response.hasError = 1;
     request->response.errorType = QUEUE_FULL_EXCEPTION;
-    pthread_mutex_unlock(&queue->headLock);
+    pthread_mutex_unlock(&queue->tailLock);
     request->isComplete = 1;
 
     return request;
@@ -268,7 +270,7 @@ void *enqueue_implementation(void *input) {
     printf("- [%c] enqueued %d\n", request->threadIndex + 'A', request->data);
   }
 
-  pthread_mutex_unlock(&queue->headLock);
+  pthread_mutex_unlock(&queue->tailLock);
   request->isComplete = 1;
 
   return request;
